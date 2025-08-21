@@ -1,0 +1,99 @@
+import React from 'react'
+
+export const colors = {
+  primary: '#0d6efd',
+  primaryDark: '#0b5ed7',
+  success: '#28a745',
+  danger: '#dc3545',
+  warning: '#ffc107',
+  text: '#212529',
+  subtleText: '#6c757d',
+  border: '#dee2e6',
+  bg: '#f8f9fa',
+  white: '#ffffff'
+}
+
+export const Card: React.FC<React.PropsWithChildren<{ style?: React.CSSProperties; className?: string }>> = ({ children, style }) => (
+  <div style={{
+    backgroundColor: colors.white,
+    border: `1px solid ${colors.border}`,
+    borderRadius: 8,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+    padding: 16,
+    ...style
+  }}>
+    {children}
+  </div>
+)
+
+type ButtonType = 'button' | 'submit' | 'reset'
+
+export const Button: React.FC<React.PropsWithChildren<{ variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'ghost'; onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void; disabled?: boolean; style?: React.CSSProperties; type?: ButtonType }>> = ({ children, variant = 'primary', onClick, disabled, style, type }) => {
+  const palette: Record<string, { bg: string; color: string; border: string; hoverBg: string; hoverColor: string }> = {
+    primary: { bg: colors.primary, color: colors.white, border: colors.primary, hoverBg: colors.primaryDark, hoverColor: colors.white },
+    success: { bg: colors.success, color: colors.white, border: colors.success, hoverBg: '#1f7a35', hoverColor: colors.white },
+    danger: { bg: colors.danger, color: colors.white, border: colors.danger, hoverBg: '#bb2d3b', hoverColor: colors.white },
+    secondary: { bg: colors.white, color: colors.text, border: colors.border, hoverBg: '#eef2f6', hoverColor: colors.text },
+    ghost: { bg: 'transparent', color: colors.text, border: 'transparent', hoverBg: '#eef2f6', hoverColor: colors.text }
+  }
+  const p = palette[variant]
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        backgroundColor: p.bg,
+        color: p.color,
+        border: `1px solid ${p.border}`,
+        padding: '8px 14px',
+        borderRadius: 8,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        fontSize: 14,
+        ...style
+      }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = p.hoverBg; (e.currentTarget as HTMLButtonElement).style.color = p.hoverColor }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = p.bg; (e.currentTarget as HTMLButtonElement).style.color = p.color }}
+    >
+      {children}
+    </button>
+  )
+}
+
+export const Toolbar: React.FC<React.PropsWithChildren<{ style?: React.CSSProperties }>> = ({ children, style }) => (
+  <div style={{
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 64,
+    backgroundColor: colors.white,
+    borderBottom: `1px solid ${colors.border}`,
+    boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+    padding: '0 20px',
+    ...style
+  }}>
+    {children}
+  </div>
+)
+
+export const Section: React.FC<React.PropsWithChildren<{ title?: string; style?: React.CSSProperties }>> = ({ title, children, style }) => (
+  <Card style={{ marginBottom: 16, ...style }}>
+    {title && <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 18, color: colors.text }}>{title}</h3>}
+    {children}
+  </Card>
+)
+
+export const Modal: React.FC<{ open: boolean; onClose: () => void; title?: string; children: React.ReactNode; width?: number; height?: number }> = ({ open, onClose, title, children, width = 900, height = 600 }) => {
+  if (!open) return null
+  return (
+    <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+      <div style={{ backgroundColor: colors.white, width, maxWidth: '90vw', height, maxHeight: '85vh', borderRadius: 10, boxShadow: '0 10px 30px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '12px 16px', borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontWeight: 600 }}>{title}</div>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer' }}>×</button>
+        </div>
+        <div style={{ padding: 12, overflow: 'auto', flex: 1 }}>{children}</div>
+      </div>
+    </div>
+  )
+}
