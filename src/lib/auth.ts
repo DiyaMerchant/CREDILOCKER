@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { UserRole, Student, Teacher, User } from '../types'
+import { verifyPassword } from './password'
 
 export const authenticateUser = async (
   credentials: { uid?: string; email?: string; password?: string },
@@ -36,10 +37,15 @@ export const authenticateUser = async (
         .from('teachers')
         .select('*')
         .eq('email', credentials.email)
-        .eq('password', credentials.password)
         .single()
 
       if (error || !data) {
+        throw new Error('Invalid teacher credentials')
+      }
+
+      // Compare password using PBKDF2 (with plaintext fallback for legacy rows)
+      const ok = await verifyPassword(credentials.password, (data as any).password || '')
+      if (!ok) {
         throw new Error('Invalid teacher credentials')
       }
 

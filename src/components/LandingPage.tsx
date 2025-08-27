@@ -2,7 +2,7 @@ import React from 'react'
 import { UserRole, User, Student } from '../types'
 import { supabase } from '../lib/supabase'
 import { Card, Section, colors } from './UI'
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid, Legend } from 'recharts'
 import { exportAttendanceReport as exportAttendanceSheet, exportCEPReport, exportFPReport } from '../lib/excelExport'
 
 interface LandingPageProps {
@@ -18,6 +18,12 @@ export default function LandingPage({ role, user }: LandingPageProps) {
   const [cepUniqueStudents, setCepUniqueStudents] = React.useState(0)
   const [cepUniqueStudentsToday, setCepUniqueStudentsToday] = React.useState(0)
   const [teacherAttendanceToday, setTeacherAttendanceToday] = React.useState(0)
+  const [cepDaily, setCepDaily] = React.useState<{ date: string; count: number }[]>([])
+  // removed unused attendanceDaily state
+  const [upcomingActivities, setUpcomingActivities] = React.useState<any[]>([])
+  const [activityOptions, setActivityOptions] = React.useState<{ id: number; date: string; name: string }[]>([])
+  const [selectedActivityId, setSelectedActivityId] = React.useState<string>('')
+  const [attendanceCountsBySelected, setAttendanceCountsBySelected] = React.useState<{ present: number; absent: number }>({ present: 0, absent: 0 })
 
   // Student dashboard states
   const [fieldCounts, setFieldCounts] = React.useState<{ [k: string]: number }>({})
@@ -119,12 +125,77 @@ export default function LandingPage({ role, user }: LandingPageProps) {
     })
     setCepUniqueStudents(Object.keys(cepStudentMap).length)
     setCepUniqueStudentsToday(Object.values(cepStudentMap).filter(date => date && date.slice(0, 10) === todayStr).length)
+    // CEP last 7 days trend
+    const last7: string[] = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - (6 - i))
+      return d.toISOString().slice(0, 10)
+    })
+    const cepByDay: Record<string, number> = {}
+    last7.forEach(d => { cepByDay[d] = 0 })
+    ; (cep || []).forEach((row: any) => {
+      const d = (row.submitted_at || '').slice(0, 10)
+      if (d in cepByDay) cepByDay[d] = (cepByDay[d] || 0) + 1
+    })
+    setCepDaily(last7.map(d => ({ date: d.slice(5), count: cepByDay[d] || 0 })))
     // Attendance
     const { data: att } = await supabase
       .from('co_curricular_attendance')
       .select('id, marked_at')
     setTeacherAttendanceToday((att || []).filter((r: any) => (r.marked_at || '').slice(0, 10) === todayStr).length)
+    // Removed last 7 days trend for attendance
+
+    const { data: activitiesForDates } = await supabase
+      .from('co_curricular_activities')
+      .select('id, activity_name, date')
+      .order('date', { ascending: false })
+    const options = (activitiesForDates || []).map(a => ({ id: a.id, date: a.date, name: a.activity_name }))
+    setActivityOptions(options)
+    if (options.length > 0 && !selectedActivityId) {
+      setSelectedActivityId(String(options[0].id))
+    }
+
+    // Upcoming activities (next 3)
+    const { data: activities } = await supabase
+      .from('co_curricular_activities')
+      .select('id, activity_name, date, assigned_class, cc_points')
+      .gte('date', todayStr)
+      .order('date', { ascending: true })
+      .limit(3)
+    setUpcomingActivities(activities || [])
+
+    // Attendance status by selected activity
+    const computeCountsForActivity = async (activityId: string) => {
+      const { data: attStatus } = await supabase
+        .from('co_curricular_attendance')
+        .select('attendance_status')
+        .eq('activity_id', activityId)
+      const present = (attStatus || []).filter(r => r.attendance_status === 'present').length
+      const absent = (attStatus || []).filter(r => r.attendance_status === 'absent').length
+      setAttendanceCountsBySelected({ present, absent })
+    }
+    if (selectedActivityId) {
+      await computeCountsForActivity(selectedActivityId)
+    } else if (options.length > 0) {
+      await computeCountsForActivity(String(options[0].id))
+    }
   }
+
+  // Recompute counts when selection changes
+  React.useEffect(() => {
+    const run = async () => {
+      if (!selectedActivityId) return
+      const { data: attStatus } = await supabase
+        .from('co_curricular_attendance')
+        .select('attendance_status')
+        .eq('activity_id', selectedActivityId)
+      const present = (attStatus || []).filter(r => r.attendance_status === 'present').length
+      const absent = (attStatus || []).filter(r => r.attendance_status === 'absent').length
+      setAttendanceCountsBySelected({ present, absent })
+    }
+    run()
+    // eslint-disable-next-line
+  }, [selectedActivityId])
 
   // --- REPORT EXPORTS ---
 
@@ -134,7 +205,7 @@ export default function LandingPage({ role, user }: LandingPageProps) {
     const { data: students = [] } = await supabase.from('students').select('uid, name, class')
     const { data: submissions = [] } = await supabase.from('field_project_submissions').select('id, student_uid, class, document_type, file_url, uploaded_at')
     const { data: approvals = [] } = await supabase.from('field_project_approvals').select('student_uid, class, approval_status, marks_allotted, credits_allotted')
-    const groupedSubmissions = submissions
+    const groupedSubmissions = (submissions || [])
       .filter((sub: any) => sub.class === selectedClass)
       .reduce((acc: any, sub: any) => {
         const key = `${sub.student_uid}_${sub.class}`
@@ -143,8 +214,8 @@ export default function LandingPage({ role, user }: LandingPageProps) {
         return acc
       }, {})
     const reportData = Object.values(groupedSubmissions).map((group: any) => {
-      const student = students.find((s: any) => s.uid === group.student_uid)
-      const approval = approvals.find((a: any) => a.student_uid === group.student_uid && a.class === group.class)
+      const student = (students || []).find((s: any) => s.uid === group.student_uid)
+      const approval = (approvals || []).find((a: any) => a.student_uid === group.student_uid && a.class === group.class)
       return {
         uid: group.student_uid,
         name: student?.name || group.student_uid,
@@ -162,13 +233,13 @@ export default function LandingPage({ role, user }: LandingPageProps) {
     const { data: requirements = [] } = await supabase.from('cep_requirements').select('*')
     const { data: students = [] } = await supabase.from('students').select('uid, name, class')
     const { data: submissions = [] } = await supabase.from('cep_submissions').select('student_uid, hours')
-    const req = requirements.find((r: any) => r.assigned_class === selectedClass)
+    const req = (requirements || []).find((r: any) => r.assigned_class === selectedClass)
     const creditConfig = req?.credits_config || []
     const studentMap: Record<string, { name: string; hours: number }> = {}
-    students
+    ; (students || [])
       .filter((s: any) => s.class === selectedClass)
       .forEach((s: any) => {
-        const studentSubs = submissions.filter((sub: any) => sub.student_uid === s.uid)
+        const studentSubs = (submissions || []).filter((sub: any) => sub.student_uid === s.uid)
         const hours = studentSubs.reduce((sum: number, sub: any) => sum + sub.hours, 0)
         studentMap[s.uid] = { name: s.name, hours }
       })
@@ -205,15 +276,15 @@ export default function LandingPage({ role, user }: LandingPageProps) {
     const { data: attendanceRecords = [] } = await supabase
       .from('co_curricular_attendance')
       .select('activity_id, student_uid, attendance_status')
-    const classActivities = activities
+    const classActivities = (activities || [])
       .filter((a: any) => Array.isArray(a.assigned_class) && a.assigned_class.includes(selectedClass))
       .sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''))
-    const classStudents = students.filter((s: any) => s.class === selectedClass)
+    const classStudents = (students || []).filter((s: any) => s.class === selectedClass)
     const header = ['uid', 'name', ...classActivities.map((a: any) => a.activity_name), 'Total CC Points']
     const rows: any[][] = [header]
     const attendanceKey = (aid: number, uid: string) => `${aid}__${uid}`
     const attendanceMap = new Map<string, 'present' | 'absent'>()
-    for (const rec of attendanceRecords) {
+    for (const rec of (attendanceRecords || [])) {
       attendanceMap.set(attendanceKey(rec.activity_id, rec.student_uid), rec.attendance_status)
     }
     for (const student of classStudents) {
@@ -241,9 +312,7 @@ export default function LandingPage({ role, user }: LandingPageProps) {
     { name: 'Completed', value: studentsWithAllDocs },
     { name: 'Incomplete', value: Math.max(0, (cepUniqueStudents - studentsWithAllDocs)) }
   ]
-  const attendanceBarData = [
-    { name: 'Marked Today', value: teacherAttendanceToday }
-  ]
+  // removed unused attendanceBarData
   const COLORS = [colors.success, colors.danger]
 
   return (
@@ -277,13 +346,24 @@ export default function LandingPage({ role, user }: LandingPageProps) {
             <Card>
               <div>
                 <div style={{ fontWeight: 600, marginBottom: 6 }}>Attendance</div>
-                <div style={{ fontSize: 14, color: colors.subtleText }}>Present / Absent</div>
+                <div style={{ fontSize: 14, color: colors.subtleText }}>Present percentage</div>
               </div>
-              <div style={{ marginTop: 4, display: 'flex', gap: 12, alignItems: 'baseline' }}>
-                <div style={{ fontSize: 18, color: colors.success, fontWeight: 700 }}>{attendanceStats.present}</div>
-                <div style={{ fontSize: 14, color: colors.subtleText }}>/</div>
-                <div style={{ fontSize: 18, color: colors.danger, fontWeight: 600 }}>{attendanceStats.absent}</div>
-              </div>
+              {(() => {
+                const total = attendanceStats.present + attendanceStats.absent
+                const pct = total > 0 ? Math.round((attendanceStats.present / total) * 100) : 0
+                return (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: colors.subtleText, marginBottom: 6 }}>
+                      <span>{attendanceStats.present} present</span>
+                      <span>{total} total</span>
+                    </div>
+                    <div style={{ backgroundColor: '#e9ecef', borderRadius: 999, height: 10 }}>
+                      <div style={{ backgroundColor: colors.success, height: '100%', borderRadius: 999, width: `${pct}%`, transition: 'width 0.3s' }} />
+                    </div>
+                    <div style={{ marginTop: 6, fontWeight: 700, color: colors.text }}>{pct}%</div>
+                  </div>
+                )
+              })()}
             </Card>
             <Card>
               <div style={{ fontWeight: 600, marginBottom: 6 }}>CEP</div>
@@ -352,63 +432,100 @@ export default function LandingPage({ role, user }: LandingPageProps) {
 
           {/* Segment 3: Charts */}
           <Card style={{ padding: 24 }}>
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Card style={{ width: 220, minWidth: 180, padding: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, alignItems: 'stretch' }}>
+              <Card style={{ padding: 12, height: '100%' }}>
                 <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15 }}>Field Project Completion</div>
-                <ResponsiveContainer width="100%" height={100}>
+                <ResponsiveContainer width="100%" height={180}>
                   <PieChart>
-                    <Pie
-                      data={fieldProjectPieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={32}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {fieldProjectPieData.map((entry, index) => (
+                    <Pie data={fieldProjectPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={60}>
+                      {fieldProjectPieData.map((_, index) => (
                         <Cell key={`cell-fp-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip />
+                    <Legend />
                   </PieChart>
                 </ResponsiveContainer>
-                <div style={{ fontSize: 11, color: colors.subtleText, marginTop: 6 }}>
-                  Proportion of students with all required Field Project documents.
-                </div>
+                <div style={{ fontSize: 11, color: colors.subtleText, marginTop: 6 }}>Students with all Field Project docs vs incomplete.</div>
               </Card>
-              <Card style={{ width: 220, minWidth: 180, padding: 10 }}>
-                <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15 }}>CEP Submissions Trend</div>
-                <ResponsiveContainer width="100%" height={100}>
-                  <BarChart data={[
-                    { name: 'Total', value: cepUniqueStudents },
-                    { name: 'New Today', value: cepUniqueStudentsToday }
-                  ]}>
-                    <XAxis dataKey="name" />
+              <Card style={{ padding: 12, height: '100%' }}>
+                <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15 }}>CEP Submissions (Last 7 days)</div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <AreaChart data={cepDaily}>
+                    <defs>
+                      <linearGradient id="colorCep" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={colors.success} stopOpacity={0.4}/>
+                        <stop offset="95%" stopColor={colors.success} stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
                     <YAxis allowDecimals={false} />
                     <Tooltip />
-                    <Bar dataKey="value" fill={colors.success} />
-                  </BarChart>
+                    <Area type="monotone" dataKey="count" stroke={colors.success} fillOpacity={1} fill="url(#colorCep)" />
+                  </AreaChart>
                 </ResponsiveContainer>
-                <div style={{ fontSize: 11, color: colors.subtleText, marginTop: 6 }}>
-                  Total and new CEP submissions by students.
-                </div>
               </Card>
-              <Card style={{ width: 220, minWidth: 180, padding: 10 }}>
-                <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15 }}>Attendance Marked Today</div>
-                <ResponsiveContainer width="100%" height={100}>
-                  <BarChart data={attendanceBarData}>
+              <Card style={{ padding: 12, overflow: 'hidden', height: '100%' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                  <div style={{ fontWeight: 600, fontSize: 15 }}>Attendance by Activity</div>
+                  <select
+                    value={selectedActivityId}
+                    onChange={async (e) => {
+                      const id = e.target.value
+                      setSelectedActivityId(id)
+                      // compute immediately for snappy UX
+                      const { data: attStatus } = await supabase
+                        .from('co_curricular_attendance')
+                        .select('attendance_status')
+                        .eq('activity_id', id)
+                      const present = (attStatus || []).filter(r => r.attendance_status === 'present').length
+                      const absent = (attStatus || []).filter(r => r.attendance_status === 'absent').length
+                      setAttendanceCountsBySelected({ present, absent })
+                    }}
+                    style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8, maxWidth: 280, width: '100%', flex: '0 1 280px' }}
+                  >
+                    {selectedActivityId === '' && (
+                      <option value="" disabled>{activityOptions.length ? 'Select an activity' : 'No activities found'}</option>
+                    )}
+                    {activityOptions.map(opt => (
+                      <option key={`${opt.id}-${opt.date}`} value={String(opt.id)}>{new Date(opt.date).toLocaleDateString()} - {opt.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={[
+                    { name: 'Present', value: attendanceCountsBySelected.present },
+                    { name: 'Absent', value: attendanceCountsBySelected.absent }
+                  ]}>
+                    <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis allowDecimals={false} />
                     <Tooltip />
                     <Bar dataKey="value" fill={colors.primary} />
                   </BarChart>
                 </ResponsiveContainer>
-                <div style={{ fontSize: 11, color: colors.subtleText, marginTop: 6 }}>
-                  Number of attendance records marked today.
-                </div>
               </Card>
             </div>
+          </Card>
+
+          {/* Segment 4: Upcoming Activities */}
+          <Card style={{ padding: 24 }}>
+            <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 16 }}>Upcoming Co-Curricular Activities</div>
+            {upcomingActivities.length === 0 ? (
+              <div style={{ color: colors.subtleText, fontSize: 14 }}>No upcoming activities.</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                {upcomingActivities.map((a: any) => (
+                  <Card key={a.id} style={{ padding: 14 }}>
+                    <div style={{ fontWeight: 600 }}>{a.activity_name}</div>
+                    <div style={{ color: colors.subtleText, fontSize: 13 }}>{new Date(a.date).toLocaleDateString()}</div>
+                    <div style={{ marginTop: 6, fontSize: 12, color: colors.subtleText }}>For {Array.isArray(a.assigned_class) ? a.assigned_class.join(', ') : a.assigned_class}</div>
+                    {a.cc_points ? <div style={{ marginTop: 6, fontSize: 12, color: colors.primary }}>CC Points: {a.cc_points}</div> : null}
+                  </Card>
+                ))}
+              </div>
+            )}
           </Card>
           </>
         )}

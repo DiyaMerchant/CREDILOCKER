@@ -18,8 +18,9 @@ export const Card: React.FC<React.PropsWithChildren<{ style?: React.CSSPropertie
     backgroundColor: colors.white,
     border: `1px solid ${colors.border}`,
     borderRadius: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--radius')) || 10,
-    boxShadow: '0 6px 20px rgba(0, 63, 134, 0.07)',
-    padding: 16,
+    boxShadow: '0 8px 24px rgba(0, 63, 134, 0.06)',
+    padding: 18,
+    transition: 'box-shadow 0.2s ease, transform 0.2s ease',
     ...style
   }}>
     {children}
@@ -46,10 +47,12 @@ export const Button: React.FC<React.PropsWithChildren<{ variant?: 'primary' | 's
         backgroundColor: p.bg,
         color: p.color,
         border: `1px solid ${p.border}`,
-        padding: '8px 14px',
+        padding: '9px 14px',
         borderRadius: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--radius')) || 10,
         cursor: disabled ? 'not-allowed' : 'pointer',
         fontSize: 14,
+        fontWeight: 600,
+        transition: 'background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease',
         ...style
       }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = p.hoverBg; (e.currentTarget as HTMLButtonElement).style.color = p.hoverColor }}
@@ -78,7 +81,7 @@ export const Toolbar: React.FC<React.PropsWithChildren<{ style?: React.CSSProper
 
 export const Section: React.FC<React.PropsWithChildren<{ title?: string; style?: React.CSSProperties }>> = ({ title, children, style }) => (
   <Card style={{ marginBottom: 16, ...style }}>
-    {title && <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 18, color: colors.text }}>{title}</h3>}
+    {title && <h3 style={{ marginTop: 0, marginBottom: 14, fontSize: 18, color: colors.text, letterSpacing: 0.2 }}>{title}</h3>}
     {children}
   </Card>
 )

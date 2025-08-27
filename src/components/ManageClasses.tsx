@@ -9,13 +9,20 @@ interface ManageClassesProps {
 
 const CLASS_OPTIONS = ['FYIT', 'FYSD', 'SYIT', 'SYSD']
 
-export default function ManageClasses({ role: _role }: ManageClassesProps) {
+export default function ManageClasses({ role }: ManageClassesProps) {
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(false)
   const [editingUid, setEditingUid] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<Partial<Student>>({})
   const [search, setSearch] = useState('')
   const [classFilter, setClassFilter] = useState('')
+
+  // Teachers management state
+  const [showTeachers, setShowTeachers] = useState(false)
+  const [teachers, setTeachers] = useState<any[]>([])
+  const [newTeacher, setNewTeacher] = useState<{ employee_code: string; name: string; email: string; password: string }>({ employee_code: '', name: '', email: '', password: '' })
+  const [editingTeacherCode, setEditingTeacherCode] = useState<string | null>(null)
+  const [teacherDraft, setTeacherDraft] = useState<{ name?: string; email?: string; password?: string }>({})
 
   // Bulk actions state
   const [bulkClass, setBulkClass] = useState('')
@@ -24,6 +31,10 @@ export default function ManageClasses({ role: _role }: ManageClassesProps) {
   useEffect(() => {
     fetchStudents()
   }, [])
+
+  useEffect(() => {
+    if (showTeachers) fetchTeachers()
+  }, [showTeachers])
 
   const fetchStudents = async () => {
     setLoading(true)
@@ -35,6 +46,14 @@ export default function ManageClasses({ role: _role }: ManageClassesProps) {
 
     if (!error) setStudents((data || []) as Student[])
     setLoading(false)
+  }
+
+  const fetchTeachers = async () => {
+    const { data } = await supabase
+      .from('teachers')
+      .select('employee_code, name, email')
+      .order('employee_code', { ascending: true })
+    setTeachers(data || [])
   }
 
   const filteredStudents = useMemo(() => {
@@ -188,7 +207,14 @@ export default function ManageClasses({ role: _role }: ManageClassesProps) {
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: 20 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h1 style={{ fontSize: 28, margin: 0, color: colors.text }}>Manage Classes</h1>
+        <h1 style={{ fontSize: 28, margin: 0, color: colors.text }}>Management</h1>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Button variant={!showTeachers ? 'primary' : 'secondary'} onClick={() => setShowTeachers(false)}>Students</Button>
+          {role === 'teacher' && (
+            <Button variant={showTeachers ? 'primary' : 'secondary'} onClick={() => setShowTeachers(true)}>Teachers</Button>
+          )}
+        </div>
+        {!showTeachers && (
         <Card style={{ padding: 12 }}>
           <label style={{ fontSize: 14, color: colors.subtleText }}>
             Upload CSV
@@ -203,8 +229,9 @@ export default function ManageClasses({ role: _role }: ManageClassesProps) {
             />
           </label>
         </Card>
+        )}
       </div>
-
+      {!showTeachers && (
       <Section title="Bulk Actions">
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>
           <div>
@@ -226,7 +253,9 @@ export default function ManageClasses({ role: _role }: ManageClassesProps) {
           </div>
         </div>
       </Section>
+      )}
 
+      {!showTeachers && (
       <Section title="CSV Format">
         <p style={{ margin: '8px 0', fontSize: 14, color: colors.text }}>
           Include a header row with columns: <strong>uid,email,name,class,semester,phone_number</strong>. Valid classes: {CLASS_OPTIONS.join(', ')}. Semester is optional numeric. Example:
@@ -239,7 +268,9 @@ uid,email,name,class,semester,phone_number
           </pre>
         </Card>
       </Section>
+      )}
 
+      {!showTeachers && (
       <Section title="Filters">
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <div>
@@ -260,7 +291,9 @@ uid,email,name,class,semester,phone_number
           </div>
         </div>
       </Section>
+      )}
 
+      {!showTeachers && (
       <Card>
         <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 110px 90px 120px 180px', gap: 8, fontWeight: 600, paddingBottom: 10, borderBottom: `1px solid ${colors.border}` }}>
           <div>UID</div>
@@ -307,6 +340,107 @@ uid,email,name,class,semester,phone_number
           <div style={{ padding: 12 }}>No students found.</div>
         )}
       </Card>
+      )}
+
+      {showTeachers && (
+      <>
+        <Section title="Add Teacher">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 8 }}>
+            <input placeholder="Employee Code" value={newTeacher.employee_code} onChange={(e) => setNewTeacher({ ...newTeacher, employee_code: e.target.value })} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
+            <input placeholder="Name" value={newTeacher.name} onChange={(e) => setNewTeacher({ ...newTeacher, name: e.target.value })} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
+            <input placeholder="Email" type="email" value={newTeacher.email} onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
+            <input placeholder="Password" type="password" value={newTeacher.password} onChange={(e) => setNewTeacher({ ...newTeacher, password: e.target.value })} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
+            <Button variant="success" onClick={async () => {
+              if (!newTeacher.employee_code || !newTeacher.name || !newTeacher.email || !newTeacher.password) {
+                alert('Please fill all fields')
+                return
+              }
+              // Hash password on client using Web Crypto PBKDF2
+              const { hashPassword } = await import('../lib/password')
+              const hash = await hashPassword(newTeacher.password)
+              const { error } = await supabase
+                .from('teachers')
+                .upsert(
+                  [{ employee_code: newTeacher.employee_code, name: newTeacher.name, email: newTeacher.email, password: hash }],
+                  { onConflict: 'employee_code' as any }
+                )
+              if (error) {
+                const msg = (error as any)?.code === '23505' || (error as any)?.status === 409
+                  ? 'Teacher already exists (duplicate employee code).'
+                  : 'Failed to add/update teacher'
+                alert(msg)
+                return
+              }
+              setNewTeacher({ employee_code: '', name: '', email: '', password: '' })
+              await fetchTeachers()
+            }}>Add</Button>
+          </div>
+        </Section>
+
+        <Section title="Teachers">
+          <Card style={{ overflowX: 'auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 1fr 220px', gap: 8, fontWeight: 600, paddingBottom: 10, borderBottom: `1px solid ${colors.border}`, minWidth: 720 }}>
+              <div>Employee Code</div>
+              <div>Name</div>
+              <div>Email</div>
+              <div>Actions</div>
+            </div>
+            {teachers.map(t => {
+              const isEditing = editingTeacherCode === t.employee_code
+              return (
+                <div key={t.employee_code} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 1fr 220px', gap: 8, padding: '10px 0', borderBottom: `1px solid ${colors.border}`, alignItems: 'center', minWidth: 720 }}>
+                  <div style={{ fontFamily: 'monospace', minWidth: 0 }}>{t.employee_code}</div>
+                  {isEditing ? (
+                    <>
+                      <input value={teacherDraft.name || ''} onChange={(e) => setTeacherDraft(prev => ({ ...prev, name: e.target.value }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8, width: '100%' }} />
+                      <input value={teacherDraft.email || ''} onChange={(e) => setTeacherDraft(prev => ({ ...prev, email: e.target.value }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8, width: '100%' }} />
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <input placeholder="New password (optional)" type="password" value={teacherDraft.password || ''} onChange={(e) => setTeacherDraft(prev => ({ ...prev, password: e.target.value }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8, flex: 1, minWidth: 160 }} />
+                        <Button variant="success" onClick={async () => {
+                          const updates: any = { name: teacherDraft.name, email: teacherDraft.email }
+                          if (teacherDraft.password) {
+                            const { hashPassword } = await import('../lib/password')
+                            updates.password = await hashPassword(teacherDraft.password)
+                          }
+                          const { error } = await supabase
+                            .from('teachers')
+                            .update(updates)
+                            .eq('employee_code', t.employee_code)
+                          if (error) { alert('Update failed'); return }
+                          setEditingTeacherCode(null)
+                          setTeacherDraft({})
+                          await fetchTeachers()
+                        }}>Save</Button>
+                        <Button variant="secondary" onClick={() => { setEditingTeacherCode(null); setTeacherDraft({}) }}>Cancel</Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
+                      <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.email}</div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <Button variant="secondary" onClick={() => { setEditingTeacherCode(t.employee_code); setTeacherDraft({ name: t.name, email: t.email }) }}>Edit</Button>
+                        <Button variant="danger" onClick={async () => {
+                          const ok = confirm(`Delete teacher ${t.employee_code}?`)
+                          if (!ok) return
+                          const { error } = await supabase
+                            .from('teachers')
+                            .delete()
+                            .eq('employee_code', t.employee_code)
+                          if (error) { alert('Delete failed'); return }
+                          await fetchTeachers()
+                        }}>Delete</Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+            {teachers.length === 0 && <div style={{ padding: 12 }}>No teachers found.</div>}
+          </Card>
+        </Section>
+      </>
+      )}
     </div>
   )
 }
