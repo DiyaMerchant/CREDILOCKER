@@ -16,6 +16,7 @@ export default function Navigation({ currentPage, onPageChange, user, onLogout }
     { id: 'field-project', title: 'Field Project' },
     { id: 'community-engagement', title: 'Community Engagement' },
     { id: 'co-curricular', title: 'Co-Curricular' },
+    { id: 'attendance', title: 'Attendance' },
     { id: 'manage-classes', title: 'Manage Classes' },
   ]
 

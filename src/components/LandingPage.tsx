@@ -1,8 +1,9 @@
 import React from 'react'
 import { UserRole, User, Student } from '../types'
-import { getAccessiblePages } from '../lib/pageAccess'
 import { supabase } from '../lib/supabase'
 import { Card, Section, colors } from './UI'
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { exportAttendanceReport as exportAttendanceSheet, exportCEPReport, exportFPReport } from '../lib/excelExport'
 
 interface LandingPageProps {
   role: UserRole
@@ -10,179 +11,408 @@ interface LandingPageProps {
   user?: User
 }
 
-export default function LandingPage({ role, onPageChange, user }: LandingPageProps) {
+export default function LandingPage({ role, user }: LandingPageProps) {
+  // Dashboard states
+  const [studentsWithAllDocs, setStudentsWithAllDocs] = React.useState(0)
+  const [studentsWithAllDocsToday, setStudentsWithAllDocsToday] = React.useState(0)
+  const [cepUniqueStudents, setCepUniqueStudents] = React.useState(0)
+  const [cepUniqueStudentsToday, setCepUniqueStudentsToday] = React.useState(0)
+  const [teacherAttendanceToday, setTeacherAttendanceToday] = React.useState(0)
+
+  // Student dashboard states
+  const [fieldCounts, setFieldCounts] = React.useState<{ [k: string]: number }>({})
+  const [upcomingCCCount, setUpcomingCCCount] = React.useState(0)
+  const [attendanceStats, setAttendanceStats] = React.useState({ present: 0, absent: 0 })
   const [cepProgress, setCepProgress] = React.useState(0)
   const [cepRequirement, setCepRequirement] = React.useState<any>(null)
-  const [fieldCounts, setFieldCounts] = React.useState<{[k: string]: number}>({})
-  const [deadlines, setDeadlines] = React.useState<{ cep?: string } | null>(null)
-  const [upcomingCCCount, setUpcomingCCCount] = React.useState<number>(0)
 
   React.useEffect(() => {
     if (!user) return
     if (role === 'student') {
-      fetchCEPProgress()
-      fetchStudentFieldCounts()
-      fetchStudentDeadlines()
-      fetchUpcomingCC()
+      fetchStudentDashboard()
     } else {
-      fetchTeacherOverview()
+      fetchTeacherDashboard()
     }
+    // eslint-disable-next-line
   }, [role, user])
 
-  const fetchCEPProgress = async () => {
-    if (!user) return
-    
-    const studentClass = (user.data as Student).class
-    
-    // Get requirement
-    const { data: reqData } = await supabase
-      .from('cep_requirements')
-      .select('*')
-      .eq('assigned_class', studentClass)
-    
-    if (reqData && reqData.length > 0) {
-      setCepRequirement(reqData[0])
-      
-      // Get submissions
-      const { data: subData } = await supabase
-        .from('cep_submissions')
-        .select('hours')
-        .eq('student_uid', user.id)
-      
-      const totalHours = subData?.reduce((sum, sub) => sum + sub.hours, 0) || 0
-      const progress = Math.min((totalHours / reqData[0].minimum_hours) * 100, 100)
-      setCepProgress(progress)
-    }
-  }
-
-  const fetchStudentFieldCounts = async () => {
-    if (!user) return
-    const { data } = await supabase
+  // --- Student Dashboard Data ---
+  const fetchStudentDashboard = async () => {
+    const studentClass = (user?.data as Student)?.class
+    // Field Project
+    const { data: fpData } = await supabase
       .from('field_project_submissions')
       .select('document_type')
-      .eq('student_uid', user.id)
-    const counts: {[k: string]: number} = {}
-    ;(data || []).forEach((r: any) => {
+      .eq('student_uid', user?.id)
+    const counts: { [k: string]: number } = {}
+    ; (fpData || []).forEach((r: any) => {
       counts[r.document_type] = (counts[r.document_type] || 0) + 1
     })
     setFieldCounts(counts)
-  }
-
-  const fetchStudentDeadlines = async () => {
-    if (!user) return
-    const studentClass = (user.data as Student).class
-    const { data } = await supabase.from('cep_requirements').select('deadline').eq('assigned_class', studentClass).order('created_at', { ascending: false })
-    if (data && data.length > 0) setDeadlines({ cep: data[0].deadline })
-  }
-
-  const fetchUpcomingCC = async () => {
-    if (!user) return
-    const studentClass = (user.data as Student).class
+    // Upcoming CC
     const today = new Date().toISOString().slice(0, 10)
-    const { data, error } = await supabase
+    const { data: ccData } = await supabase
       .from('co_curricular_activities')
       .select('id, assigned_class, date')
       .gte('date', today)
       .contains('assigned_class', [studentClass] as any)
-    if (!error) {
-      setUpcomingCCCount((data || []).length)
+    setUpcomingCCCount((ccData || []).length)
+    // Attendance
+    const { data: attData } = await supabase
+      .from('co_curricular_attendance')
+      .select('attendance_status')
+      .eq('student_uid', user?.id)
+    setAttendanceStats({
+      present: (attData || []).filter((r: any) => r.attendance_status === 'present').length,
+      absent: (attData || []).filter((r: any) => r.attendance_status === 'absent').length
+    })
+    // CEP Progress
+    const { data: reqData } = await supabase
+      .from('cep_requirements')
+      .select('*')
+      .eq('assigned_class', studentClass)
+    if (reqData && reqData.length > 0) {
+      setCepRequirement(reqData[0])
+      const { data: subData } = await supabase
+        .from('cep_submissions')
+        .select('hours')
+        .eq('student_uid', user?.id)
+      const totalHours = subData?.reduce((sum, sub) => sum + sub.hours, 0) || 0
+      setCepProgress(Math.min((totalHours / reqData[0].minimum_hours) * 100, 100))
     }
   }
 
-  const fetchTeacherOverview = async () => {
-    const { data: fp } = await supabase.from('field_project_submissions').select('id')
-    const { data: cep } = await supabase.from('cep_submissions').select('id')
-    setFieldCounts({ total_fp: fp?.length || 0, total_cep: cep?.length || 0 } as any)
+  // --- Teacher Dashboard Data ---
+  const fetchTeacherDashboard = async () => {
+    // Field Project
+    const { data: submissions } = await supabase
+      .from('field_project_submissions')
+      .select('student_uid, document_type, uploaded_at')
+    const studentDocs: { [uid: string]: { types: Set<string>, latestUpload: string } } = {}
+    ; (submissions || []).forEach((sub: any) => {
+      if (!studentDocs[sub.student_uid]) {
+        studentDocs[sub.student_uid] = { types: new Set(), latestUpload: '' }
+      }
+      studentDocs[sub.student_uid].types.add(sub.document_type)
+      if (!studentDocs[sub.student_uid].latestUpload || new Date(sub.uploaded_at) > new Date(studentDocs[sub.student_uid].latestUpload)) {
+        studentDocs[sub.student_uid].latestUpload = sub.uploaded_at
+      }
+    })
+    const requiredTypes = new Set(['completion_letter', 'outcome_form', 'feedback_form', 'video_presentation'])
+    let allDocsCount = 0, allDocsTodayCount = 0
+    const todayStr = new Date().toISOString().slice(0, 10)
+    Object.values(studentDocs).forEach(({ types, latestUpload }) => {
+      if (requiredTypes.size === types.size && [...requiredTypes].every(t => types.has(t))) {
+        allDocsCount++
+        if (latestUpload && latestUpload.slice(0, 10) === todayStr) allDocsTodayCount++
+      }
+    })
+    setStudentsWithAllDocs(allDocsCount)
+    setStudentsWithAllDocsToday(allDocsTodayCount)
+    // CEP
+    const { data: cep } = await supabase.from('cep_submissions').select('student_uid, submitted_at')
+    const cepStudentMap: { [uid: string]: string } = {}
+    ; (cep || []).forEach((row: any) => {
+      if (!cepStudentMap[row.student_uid] || new Date(row.submitted_at) > new Date(cepStudentMap[row.student_uid])) {
+        cepStudentMap[row.student_uid] = row.submitted_at
+      }
+    })
+    setCepUniqueStudents(Object.keys(cepStudentMap).length)
+    setCepUniqueStudentsToday(Object.values(cepStudentMap).filter(date => date && date.slice(0, 10) === todayStr).length)
+    // Attendance
+    const { data: att } = await supabase
+      .from('co_curricular_attendance')
+      .select('id, marked_at')
+    setTeacherAttendanceToday((att || []).filter((r: any) => (r.marked_at || '').slice(0, 10) === todayStr).length)
   }
 
-  const features = [
-    { id: 'field-project', title: 'Field Project', description: 'Track and manage your field project activities.' },
-    { id: 'community-engagement', title: 'Community Engagement', description: 'Participate in community service programs.' },
-    { id: 'co-curricular', title: 'Co-Curricular Activities', description: 'Record your co-curricular achievements.' },
-    { id: 'manage-classes', title: 'Manage Classes', description: 'Upload, view, and edit students by class.' },
-  ]
+  // --- REPORT EXPORTS ---
 
-  const accessiblePageIds = user ? getAccessiblePages(user) : ['landing']
-  const availableFeatures = features.filter(feature => accessiblePageIds.includes(feature.id))
+  const exportFieldProjectReport = async () => {
+    const selectedClass = prompt('Enter class to generate report for (e.g., FYIT, FYSD, SYIT, SYSD):')?.trim()
+    if (!selectedClass) return
+    const { data: students = [] } = await supabase.from('students').select('uid, name, class')
+    const { data: submissions = [] } = await supabase.from('field_project_submissions').select('id, student_uid, class, document_type, file_url, uploaded_at')
+    const { data: approvals = [] } = await supabase.from('field_project_approvals').select('student_uid, class, approval_status, marks_allotted, credits_allotted')
+    const groupedSubmissions = submissions
+      .filter((sub: any) => sub.class === selectedClass)
+      .reduce((acc: any, sub: any) => {
+        const key = `${sub.student_uid}_${sub.class}`
+        if (!acc[key]) acc[key] = { student_uid: sub.student_uid, class: sub.class, submissions: [] }
+        acc[key].submissions.push(sub)
+        return acc
+      }, {})
+    const reportData = Object.values(groupedSubmissions).map((group: any) => {
+      const student = students.find((s: any) => s.uid === group.student_uid)
+      const approval = approvals.find((a: any) => a.student_uid === group.student_uid && a.class === group.class)
+      return {
+        uid: group.student_uid,
+        name: student?.name || group.student_uid,
+        status: approval?.approval_status || 'Pending',
+        marks: approval?.marks_allotted || 0,
+        credits: approval?.credits_allotted || 0
+      }
+    })
+    exportFPReport(reportData)
+  }
+
+  const exportCEPReportLanding = async () => {
+    const selectedClass = prompt('Enter class to generate report for (e.g., FYIT, FYSD, SYIT, SYSD):')?.trim()
+    if (!selectedClass) return
+    const { data: requirements = [] } = await supabase.from('cep_requirements').select('*')
+    const { data: students = [] } = await supabase.from('students').select('uid, name, class')
+    const { data: submissions = [] } = await supabase.from('cep_submissions').select('student_uid, hours')
+    const req = requirements.find((r: any) => r.assigned_class === selectedClass)
+    const creditConfig = req?.credits_config || []
+    const studentMap: Record<string, { name: string; hours: number }> = {}
+    students
+      .filter((s: any) => s.class === selectedClass)
+      .forEach((s: any) => {
+        const studentSubs = submissions.filter((sub: any) => sub.student_uid === s.uid)
+        const hours = studentSubs.reduce((sum: number, sub: any) => sum + sub.hours, 0)
+        studentMap[s.uid] = { name: s.name, hours }
+      })
+    const reportData = Object.entries(studentMap).map(([uid, { name, hours }]) => {
+      let credits = 0
+      if (creditConfig.length > 0) {
+        const sortedConfig = [...creditConfig].sort((a: any, b: any) => b.hours - a.hours)
+        for (const condition of sortedConfig) {
+          if (hours >= condition.hours) {
+            credits = condition.credits
+            break
+          }
+        }
+      }
+      return {
+        uid,
+        name,
+        hoursCompleted: hours,
+        creditsAllocated: credits
+      }
+    })
+    exportCEPReport(reportData)
+  }
+
+  const exportAttendanceReportLanding = async () => {
+    const selectedClass = prompt('Enter class to generate attendance report for (e.g., FYIT, FYSD, SYIT, SYSD):')?.trim()
+    if (!selectedClass) return
+    const { data: activities = [] } = await supabase
+      .from('co_curricular_activities')
+      .select('*')
+    const { data: students = [] } = await supabase
+      .from('students')
+      .select('uid, name, class')
+    const { data: attendanceRecords = [] } = await supabase
+      .from('co_curricular_attendance')
+      .select('activity_id, student_uid, attendance_status')
+    const classActivities = activities
+      .filter((a: any) => Array.isArray(a.assigned_class) && a.assigned_class.includes(selectedClass))
+      .sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''))
+    const classStudents = students.filter((s: any) => s.class === selectedClass)
+    const header = ['uid', 'name', ...classActivities.map((a: any) => a.activity_name), 'Total CC Points']
+    const rows: any[][] = [header]
+    const attendanceKey = (aid: number, uid: string) => `${aid}__${uid}`
+    const attendanceMap = new Map<string, 'present' | 'absent'>()
+    for (const rec of attendanceRecords) {
+      attendanceMap.set(attendanceKey(rec.activity_id, rec.student_uid), rec.attendance_status)
+    }
+    for (const student of classStudents) {
+      let totalPoints = 0
+      const row = [student.uid, student.name]
+      for (const activity of classActivities) {
+        const status = attendanceMap.get(attendanceKey(activity.id, student.uid))
+        if (status === 'present') {
+          row.push('Present')
+          totalPoints += activity.cc_points || 0
+        } else if (status === 'absent') {
+          row.push('Absent')
+        } else {
+          row.push('-')
+        }
+      }
+      row.push(totalPoints)
+      rows.push(row)
+    }
+    exportAttendanceSheet(rows, `${selectedClass} Attendance`, `attendance_${selectedClass}.xlsx`)
+  }
+
+  // --- CHART DATA ---
+  const fieldProjectPieData = [
+    { name: 'Completed', value: studentsWithAllDocs },
+    { name: 'Incomplete', value: Math.max(0, (cepUniqueStudents - studentsWithAllDocs)) }
+  ]
+  const attendanceBarData = [
+    { name: 'Marked Today', value: teacherAttendanceToday }
+  ]
+  const COLORS = [colors.success, colors.danger]
 
   return (
-    <>
-      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 20px' }}>
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <h1 style={{ fontSize: 28, marginBottom: 8, color: colors.text }}>Welcome to CrediLocker</h1>
-          <p style={{ color: colors.subtleText, fontSize: 16 }}>Track your academic achievements</p>
-        </div>
-
-        <Section title="Quick Access">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-            {availableFeatures.map((feature) => (
-              <Card key={feature.id} style={{ cursor: 'pointer' }}>
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>{feature.title}</div>
-                <div style={{ color: colors.subtleText, fontSize: 14, marginBottom: 10 }}>{feature.description}</div>
-                <button onClick={() => onPageChange(feature.id)} style={{ background: colors.white, color: colors.primary, border: `1px solid ${colors.primary}`, padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}>Open</button>
-              </Card>
-            ))}
+    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 20px' }}>
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <h1 style={{ fontSize: 28, marginBottom: 8, color: colors.text }}>Welcome to CrediLocker</h1>
+        <p style={{ color: colors.subtleText, fontSize: 16 }}>Track your academic achievements</p>
+      </div>
+      <Section title="Dashboard">
+        {role === 'student' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+            <Card>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>Field Project</div>
+                <div style={{ fontSize: 14, color: colors.subtleText }}>Uploads</div>
+              </div>
+              <div style={{ fontSize: 12, color: colors.subtleText }}>
+                Completion Letter: {fieldCounts['completion_letter'] || 0}<br />
+                Outcome Form: {fieldCounts['outcome_form'] || 0}<br />
+                Feedback Form: {fieldCounts['feedback_form'] || 0}<br />
+                Video: {fieldCounts['video_presentation'] || 0}
+              </div>
+            </Card>
+            <Card>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>Co-Curricular</div>
+                <div style={{ fontSize: 14, color: colors.subtleText }}>Upcoming Activities</div>
+              </div>
+              <div style={{ fontSize: 22, color: colors.primary, fontWeight: 700 }}>{upcomingCCCount}</div>
+            </Card>
+            <Card>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>Attendance</div>
+                <div style={{ fontSize: 14, color: colors.subtleText }}>Present / Absent</div>
+              </div>
+              <div style={{ marginTop: 4, display: 'flex', gap: 12, alignItems: 'baseline' }}>
+                <div style={{ fontSize: 18, color: colors.success, fontWeight: 700 }}>{attendanceStats.present}</div>
+                <div style={{ fontSize: 14, color: colors.subtleText }}>/</div>
+                <div style={{ fontSize: 18, color: colors.danger, fontWeight: 600 }}>{attendanceStats.absent}</div>
+              </div>
+            </Card>
+            <Card>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>CEP</div>
+              {cepRequirement ? (
+                <>
+                  <div style={{ fontSize: 13, color: colors.subtleText, marginBottom: 6 }}>Required Hours: {cepRequirement.minimum_hours}</div>
+                  <div style={{ backgroundColor: '#e9ecef', borderRadius: 8, height: 10, marginBottom: 6 }}>
+                    <div style={{ backgroundColor: cepProgress >= 100 ? colors.success : colors.primary, height: '100%', borderRadius: 8, width: `${cepProgress}%`, transition: 'width 0.3s' }}></div>
+                  </div>
+                  <div style={{ fontSize: 12, color: colors.subtleText }}>Deadline: {new Date(cepRequirement.deadline).toLocaleDateString()}</div>
+                </>
+              ) : (
+                <div style={{ fontSize: 14, color: colors.subtleText }}>No CEP requirement found.</div>
+              )}
+            </Card>
           </div>
-        </Section>
-
-        <Section title="Dashboard">
-          {role === 'student' ? (
+        ) : (
+          <>
+          {/* Segment 1: Summary Cards */}
+          <Card style={{ marginBottom: 32, padding: 24 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
               <Card>
                 <div>
                   <div style={{ fontWeight: 600, marginBottom: 6 }}>Field Project</div>
-                  <div style={{ fontSize: 14, color: colors.subtleText }}>Uploads</div>
+                  <div style={{ fontSize: 14, color: colors.subtleText }}>Students with all 4 documents</div>
                 </div>
-                <div style={{ fontSize: 12, color: colors.subtleText }}>
-                  Completion Letter: {fieldCounts['completion_letter'] || 0}<br/>
-                  Outcome Form: {fieldCounts['outcome_form'] || 0}<br/>
-                  Feedback Form: {fieldCounts['feedback_form'] || 0}<br/>
-                  Video: {fieldCounts['video_presentation'] || 0}
+                <div style={{ fontSize: 22, color: colors.primary, fontWeight: 700 }}>{studentsWithAllDocs}</div>
+                <div style={{ fontSize: 13, color: colors.success, marginTop: 6 }}>
+                  New today: {studentsWithAllDocsToday}
                 </div>
-              </Card>
-              <Card>
-                <div>
-                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Co-Curricular</div>
-                  <div style={{ fontSize: 14, color: colors.subtleText }}>Upcoming Activities</div>
-                </div>
-                <div style={{ fontSize: 22, color: colors.primary, fontWeight: 700 }}>{upcomingCCCount}</div>
-              </Card>
-              <Card>
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>CEP</div>
-                {cepRequirement ? (
-                  <>
-                    <div style={{ fontSize: 13, color: colors.subtleText, marginBottom: 6 }}>Required Hours: {cepRequirement.minimum_hours}</div>
-                    <div style={{ backgroundColor: '#e9ecef', borderRadius: 8, height: 10, marginBottom: 6 }}>
-                      <div style={{ backgroundColor: cepProgress >= 100 ? colors.success : colors.primary, height: '100%', borderRadius: 8, width: `${cepProgress}%`, transition: 'width 0.3s' }}></div>
-                    </div>
-                    <div style={{ fontSize: 12, color: colors.subtleText }}>Deadline: {new Date(cepRequirement.deadline).toLocaleDateString()}</div>
-                  </>
-                ) : (
-                  <div style={{ fontSize: 14, color: colors.subtleText }}>No CEP requirement found.</div>
-                )}
-              </Card>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-              <Card>
-                <div>
-                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Field Project</div>
-                  <div style={{ fontSize: 14, color: colors.subtleText }}>Total Submissions</div>
-                </div>
-                <div style={{ fontSize: 22, color: colors.primary, fontWeight: 700 }}>{(fieldCounts as any).total_fp || 0}</div>
               </Card>
               <Card>
                 <div>
                   <div style={{ fontWeight: 600, marginBottom: 6 }}>CEP</div>
-                  <div style={{ fontSize: 14, color: colors.subtleText }}>Total Submissions</div>
+                  <div style={{ fontSize: 14, color: colors.subtleText }}>Students with submissions</div>
                 </div>
-                <div style={{ fontSize: 22, color: colors.success, fontWeight: 700 }}>{(fieldCounts as any).total_cep || 0}</div>
+                <div style={{ fontSize: 22, color: colors.success, fontWeight: 700 }}>{cepUniqueStudents}</div>
+                <div style={{ fontSize: 13, color: colors.success, marginTop: 6 }}>
+                  New today: {cepUniqueStudentsToday}
+                </div>
+              </Card>
+              <Card>
+                <div>
+                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Attendance</div>
+                  <div style={{ fontSize: 14, color: colors.subtleText }}>Marked Today</div>
+                </div>
+                <div style={{ fontSize: 22, color: colors.primary, fontWeight: 700 }}>{teacherAttendanceToday}</div>
               </Card>
             </div>
-          )}
-        </Section>
-      </div>
-      {/* Removed separate CEP Progress block to include CEP in dashboard cards */}
-    </>
+          </Card>
+
+          {/* Segment 2: Download Buttons */}
+          <Card style={{ marginBottom: 32, padding: 24, textAlign: 'center' }}>
+            <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+              <button onClick={exportFieldProjectReport} style={{ padding: '10px 20px', background: colors.primary, color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}>
+                Download Field Project Report
+              </button>
+              <button onClick={exportCEPReportLanding} style={{ padding: '10px 20px', background: colors.success, color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}>
+                Download CEP Report
+              </button>
+              <button onClick={exportAttendanceReportLanding} style={{ padding: '10px 20px', background: colors.primary, color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}>
+                Download Attendance Report
+              </button>
+            </div>
+          </Card>
+
+          {/* Segment 3: Charts */}
+          <Card style={{ padding: 24 }}>
+            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Card style={{ width: 220, minWidth: 180, padding: 10 }}>
+                <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15 }}>Field Project Completion</div>
+                <ResponsiveContainer width="100%" height={100}>
+                  <PieChart>
+                    <Pie
+                      data={fieldProjectPieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={32}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {fieldProjectPieData.map((entry, index) => (
+                        <Cell key={`cell-fp-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ fontSize: 11, color: colors.subtleText, marginTop: 6 }}>
+                  Proportion of students with all required Field Project documents.
+                </div>
+              </Card>
+              <Card style={{ width: 220, minWidth: 180, padding: 10 }}>
+                <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15 }}>CEP Submissions Trend</div>
+                <ResponsiveContainer width="100%" height={100}>
+                  <BarChart data={[
+                    { name: 'Total', value: cepUniqueStudents },
+                    { name: 'New Today', value: cepUniqueStudentsToday }
+                  ]}>
+                    <XAxis dataKey="name" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="value" fill={colors.success} />
+                  </BarChart>
+                </ResponsiveContainer>
+                <div style={{ fontSize: 11, color: colors.subtleText, marginTop: 6 }}>
+                  Total and new CEP submissions by students.
+                </div>
+              </Card>
+              <Card style={{ width: 220, minWidth: 180, padding: 10 }}>
+                <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15 }}>Attendance Marked Today</div>
+                <ResponsiveContainer width="100%" height={100}>
+                  <BarChart data={attendanceBarData}>
+                    <XAxis dataKey="name" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="value" fill={colors.primary} />
+                  </BarChart>
+                </ResponsiveContainer>
+                <div style={{ fontSize: 11, color: colors.subtleText, marginTop: 6 }}>
+                  Number of attendance records marked today.
+                </div>
+              </Card>
+            </div>
+          </Card>
+          </>
+        )}
+      </Section>
+    </div>
   )
 }

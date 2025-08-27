@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { UserRole, Student } from '../types'
+import { Section, Card, Button, colors } from './UI'
 
 interface ManageClassesProps {
   role: UserRole
@@ -8,7 +9,7 @@ interface ManageClassesProps {
 
 const CLASS_OPTIONS = ['FYIT', 'FYSD', 'SYIT', 'SYSD']
 
-export default function ManageClasses({ role }: ManageClassesProps) {
+export default function ManageClasses({ role: _role }: ManageClassesProps) {
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(false)
   const [editingUid, setEditingUid] = useState<string | null>(null)
@@ -185,11 +186,11 @@ export default function ManageClasses({ role }: ManageClassesProps) {
   }
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ fontSize: '28px', margin: 0 }}>Manage Classes</h1>
-        <div>
-          <label style={{ marginRight: '10px', fontSize: '14px' }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h1 style={{ fontSize: 28, margin: 0, color: colors.text }}>Manage Classes</h1>
+        <Card style={{ padding: 12 }}>
+          <label style={{ fontSize: 14, color: colors.subtleText }}>
             Upload CSV
             <input
               type="file"
@@ -198,19 +199,17 @@ export default function ManageClasses({ role }: ManageClassesProps) {
                 const f = e.target.files?.[0]
                 if (f) handleCsvUpload(f)
               }}
-              style={{ display: 'block', marginTop: '6px' }}
+              style={{ display: 'block', marginTop: 6 }}
             />
           </label>
-        </div>
+        </Card>
       </div>
 
-      {/* Bulk Actions */}
-      <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '5px', border: '1px solid #ddd', marginBottom: '16px' }}>
-        <h3 style={{ marginTop: 0 }}>Bulk Actions</h3>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'end' }}>
+      <Section title="Bulk Actions">
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', color: '#555' }}>Class</label>
-            <select value={bulkClass} onChange={(e) => setBulkClass(e.target.value)} style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }}>
+            <label style={{ display: 'block', fontSize: 12, color: colors.subtleText }}>Class</label>
+            <select value={bulkClass} onChange={(e) => setBulkClass(e.target.value)} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }}>
               <option value="">Select Class</option>
               {CLASS_OPTIONS.map(c => (
                 <option key={c} value={c}>{c}</option>
@@ -218,52 +217,52 @@ export default function ManageClasses({ role }: ManageClassesProps) {
             </select>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', color: '#555' }}>New Semester</label>
-            <input type="number" value={bulkNewSemester} onChange={(e) => setBulkNewSemester(e.target.value === '' ? '' : Number(e.target.value))} placeholder="e.g. 4" style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '4px', width: '100px' }} />
+            <label style={{ display: 'block', fontSize: 12, color: colors.subtleText }}>New Semester</label>
+            <input type="number" value={bulkNewSemester} onChange={(e) => setBulkNewSemester(e.target.value === '' ? '' : Number(e.target.value))} placeholder="e.g. 4" style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8, width: 100 }} />
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={bulkUpdateSemesterByClass} style={{ backgroundColor: '#0d6efd', color: 'white', padding: '8px 12px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Update Semester</button>
-            <button onClick={bulkDeleteByClass} style={{ backgroundColor: '#dc3545', color: 'white', padding: '8px 12px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Delete All in Class</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button onClick={bulkUpdateSemesterByClass} variant="primary">Update Semester</Button>
+            <Button onClick={bulkDeleteByClass} variant="danger">Delete All in Class</Button>
           </div>
         </div>
-      </div>
+      </Section>
 
-      <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '5px', border: '1px solid #ddd', marginBottom: '16px' }}>
-        <h3 style={{ marginTop: 0 }}>CSV Format</h3>
-        <p style={{ margin: '8px 0', fontSize: '14px' }}>
-          Include a header row with columns: <strong>uid,email,name,class,semester,phone_number</strong>.
-          Valid classes: {CLASS_OPTIONS.join(', ')}. Semester is optional numeric. Example:
+      <Section title="CSV Format">
+        <p style={{ margin: '8px 0', fontSize: 14, color: colors.text }}>
+          Include a header row with columns: <strong>uid,email,name,class,semester,phone_number</strong>. Valid classes: {CLASS_OPTIONS.join(', ')}. Semester is optional numeric. Example:
         </p>
-        <pre style={{ background: '#f8f9fa', padding: '10px', border: '1px solid #eee', overflowX: 'auto' }}>
+        <Card style={{ padding: 10, background: '#f8fafc' }}>
+          <pre style={{ margin: 0, overflowX: 'auto' }}>
 uid,email,name,class,semester,phone_number
 24BIT001,alice@example.com,Alice Smith,FYIT,1,9876543210
 24BIT002,bob@example.com,Bob Patel,SYSD,4,
-        </pre>
-      </div>
+          </pre>
+        </Card>
+      </Section>
 
-      <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '5px', border: '1px solid #ddd', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+      <Section title="Filters">
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', color: '#555' }}>Class Filter</label>
-            <select value={classFilter} onChange={(e) => setClassFilter(e.target.value)} style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }}>
+            <label style={{ display: 'block', fontSize: 12, color: colors.subtleText }}>Class Filter</label>
+            <select value={classFilter} onChange={(e) => setClassFilter(e.target.value)} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }}>
               <option value="">All</option>
               {CLASS_OPTIONS.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>
-          <div style={{ flex: 1, minWidth: '240px' }}>
-            <label style={{ display: 'block', fontSize: '12px', color: '#555' }}>Search</label>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by UID, name, or email" style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} />
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <label style={{ display: 'block', fontSize: 12, color: colors.subtleText }}>Search</label>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by UID, name, or email" style={{ width: '100%', padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
           </div>
           <div style={{ display: 'flex', alignItems: 'end' }}>
-            <button onClick={() => { setSearch(''); setClassFilter('') }} style={{ backgroundColor: '#6c757d', color: 'white', padding: '8px 12px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Clear</button>
+            <Button variant="secondary" onClick={() => { setSearch(''); setClassFilter('') }}>Clear</Button>
           </div>
         </div>
-      </div>
+      </Section>
 
-      <div style={{ backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '5px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 110px 90px 120px 180px', gap: '8px', fontWeight: 600, padding: '10px', borderBottom: '1px solid #eee' }}>
+      <Card>
+        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 110px 90px 120px 180px', gap: 8, fontWeight: 600, paddingBottom: 10, borderBottom: `1px solid ${colors.border}` }}>
           <div>UID</div>
           <div>Name</div>
           <div>Email</div>
@@ -272,22 +271,22 @@ uid,email,name,class,semester,phone_number
           <div>Phone</div>
           <div>Actions</div>
         </div>
-        {loading && <div style={{ padding: '12px' }}>Loading...</div>}
+        {loading && <div style={{ padding: 12 }}>Loading...</div>}
         {!loading && filteredStudents.map(s => (
-          <div key={s.uid} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 110px 90px 120px 180px', gap: '8px', padding: '10px', borderBottom: '1px solid #f1f1f1', alignItems: 'center' }}>
+          <div key={s.uid} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 110px 90px 120px 180px', gap: 8, padding: '10px 0', borderBottom: `1px solid ${colors.border}`, alignItems: 'center' }}>
             <div style={{ fontFamily: 'monospace' }}>{s.uid}</div>
             {editingUid === s.uid ? (
               <>
-                <input value={editDraft.name as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, name: e.target.value }))} style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} />
-                <input value={editDraft.email as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, email: e.target.value }))} style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} />
-                <select value={editDraft.class as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, class: e.target.value }))} style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }}>
+                <input value={editDraft.name as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, name: e.target.value }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
+                <input value={editDraft.email as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, email: e.target.value }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
+                <select value={editDraft.class as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, class: e.target.value }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }}>
                   {CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <input type="number" value={editDraft.semester as number || 0} onChange={(e) => setEditDraft(prev => ({ ...prev, semester: Number(e.target.value) }))} style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '4px', width: '80px' }} />
-                <input value={editDraft.phone_number as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, phone_number: e.target.value }))} style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} />
-                <div>
-                  <button onClick={saveEdit} style={{ backgroundColor: '#28a745', color: 'white', padding: '6px 10px', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '8px' }}>Save</button>
-                  <button onClick={cancelEdit} style={{ backgroundColor: '#6c757d', color: 'white', padding: '6px 10px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
+                <input type="number" value={editDraft.semester as number || 0} onChange={(e) => setEditDraft(prev => ({ ...prev, semester: Number(e.target.value) }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8, width: 80 }} />
+                <input value={editDraft.phone_number as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, phone_number: e.target.value }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Button onClick={saveEdit} variant="success">Save</Button>
+                  <Button onClick={cancelEdit} variant="secondary">Cancel</Button>
                 </div>
               </>
             ) : (
@@ -298,16 +297,16 @@ uid,email,name,class,semester,phone_number
                 <div>{s.semester ?? '-'}</div>
                 <div>{s.phone_number ?? '-'}</div>
                 <div>
-                  <button onClick={() => startEdit(s)} style={{ backgroundColor: '#ffc107', color: '#000', padding: '6px 10px', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '8px' }}>Edit</button>
+                  <Button onClick={() => startEdit(s)} variant="secondary">Edit</Button>
                 </div>
               </>
             )}
           </div>
         ))}
         {!loading && filteredStudents.length === 0 && (
-          <div style={{ padding: '12px' }}>No students found.</div>
+          <div style={{ padding: 12 }}>No students found.</div>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

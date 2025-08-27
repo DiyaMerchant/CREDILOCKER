@@ -1,3 +1,28 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --primary: #003F86;
+  --primary-dark: #00336c;
+  --success: #27a376;
+  --danger: #d64545;
+  --warning: #f8b400;
+  --text: #1f2937;
+  --subtle-text: #6b7280;
+  --border: #e5e7eb;
+  --bg: #f7f9fc;
+  --white: #ffffff;
+  --radius: 10px;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
+  background: var(--bg);
+  color: var(--text);
+}

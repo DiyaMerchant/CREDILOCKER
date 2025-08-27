@@ -1,24 +1,24 @@
 import React from 'react'
 
 export const colors = {
-  primary: '#0d6efd',
-  primaryDark: '#0b5ed7',
-  success: '#28a745',
-  danger: '#dc3545',
-  warning: '#ffc107',
-  text: '#212529',
-  subtleText: '#6c757d',
-  border: '#dee2e6',
-  bg: '#f8f9fa',
-  white: '#ffffff'
+  primary: getComputedStyle(document.documentElement).getPropertyValue('--primary')?.trim() || '#003F86',
+  primaryDark: getComputedStyle(document.documentElement).getPropertyValue('--primary-dark')?.trim() || '#00336c',
+  success: getComputedStyle(document.documentElement).getPropertyValue('--success')?.trim() || '#27a376',
+  danger: getComputedStyle(document.documentElement).getPropertyValue('--danger')?.trim() || '#d64545',
+  warning: getComputedStyle(document.documentElement).getPropertyValue('--warning')?.trim() || '#f8b400',
+  text: getComputedStyle(document.documentElement).getPropertyValue('--text')?.trim() || '#1f2937',
+  subtleText: getComputedStyle(document.documentElement).getPropertyValue('--subtle-text')?.trim() || '#6b7280',
+  border: getComputedStyle(document.documentElement).getPropertyValue('--border')?.trim() || '#e5e7eb',
+  bg: getComputedStyle(document.documentElement).getPropertyValue('--bg')?.trim() || '#f7f9fc',
+  white: getComputedStyle(document.documentElement).getPropertyValue('--white')?.trim() || '#ffffff'
 }
 
 export const Card: React.FC<React.PropsWithChildren<{ style?: React.CSSProperties; className?: string }>> = ({ children, style }) => (
   <div style={{
     backgroundColor: colors.white,
     border: `1px solid ${colors.border}`,
-    borderRadius: 8,
-    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+    borderRadius: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--radius')) || 10,
+    boxShadow: '0 6px 20px rgba(0, 63, 134, 0.07)',
     padding: 16,
     ...style
   }}>
@@ -47,7 +47,7 @@ export const Button: React.FC<React.PropsWithChildren<{ variant?: 'primary' | 's
         color: p.color,
         border: `1px solid ${p.border}`,
         padding: '8px 14px',
-        borderRadius: 8,
+        borderRadius: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--radius')) || 10,
         cursor: disabled ? 'not-allowed' : 'pointer',
         fontSize: 14,
         ...style
@@ -68,7 +68,7 @@ export const Toolbar: React.FC<React.PropsWithChildren<{ style?: React.CSSProper
     height: 64,
     backgroundColor: colors.white,
     borderBottom: `1px solid ${colors.border}`,
-    boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+    boxShadow: '0 8px 24px rgba(0,63,134,0.05)',
     padding: '0 20px',
     ...style
   }}>
@@ -83,16 +83,16 @@ export const Section: React.FC<React.PropsWithChildren<{ title?: string; style?:
   </Card>
 )
 
-export const Modal: React.FC<{ open: boolean; onClose: () => void; title?: string; children: React.ReactNode; width?: number; height?: number }> = ({ open, onClose, title, children, width = 900, height = 600 }) => {
+export const Modal: React.FC<{ open: boolean; onClose: () => void; title?: string; children: React.ReactNode; width?: number; height?: number; noScroll?: boolean }> = ({ open, onClose, title, children, width = 900, height = 600, noScroll = false }) => {
   if (!open) return null
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ backgroundColor: colors.white, width, maxWidth: '90vw', height, maxHeight: '85vh', borderRadius: 10, boxShadow: '0 10px 30px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ backgroundColor: colors.white, width, maxWidth: '90vw', height, maxHeight: '85vh', borderRadius: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--radius')) || 10, boxShadow: '0 24px 64px rgba(0,63,134,0.12)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '12px 16px', borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ fontWeight: 600 }}>{title}</div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer' }}>×</button>
         </div>
-        <div style={{ padding: 12, overflow: 'auto', flex: 1 }}>{children}</div>
+        <div style={{ padding: 12, overflow: noScroll ? 'hidden' : 'auto', flex: 1 }}>{children}</div>
       </div>
     </div>
   )

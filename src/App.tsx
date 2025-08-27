@@ -9,6 +9,7 @@ import FieldProject from './components/FieldProject'
 import CommunityEngagement from './components/CommunityEngagement'
 import CoCurricular from './components/CoCurricular'
 import ManageClasses from './components/ManageClasses'
+import Attendance from './components/Attendance'
 
 function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -70,6 +71,8 @@ function App() {
         return <CoCurricular role={user!.role} />
       case 'manage-classes':
         return <ManageClasses role={user!.role} />
+      case 'attendance':
+        return <Attendance role={user!.role} />
       default:
         return <LandingPage role={user!.role} onPageChange={handlePageChange} user={user} />
     }
