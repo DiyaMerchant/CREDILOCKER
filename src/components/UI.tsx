@@ -47,10 +47,10 @@ export const Button: React.FC<React.PropsWithChildren<{ variant?: 'primary' | 's
         backgroundColor: p.bg,
         color: p.color,
         border: `1px solid ${p.border}`,
-        padding: '9px 14px',
+        padding: 'clamp(6px, 1.5vw, 10px) clamp(10px, 2vw, 14px)',
         borderRadius: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--radius')) || 10,
         cursor: disabled ? 'not-allowed' : 'pointer',
-        fontSize: 14,
+        fontSize: 'clamp(12px, 1.6vw, 14px)',
         fontWeight: 600,
         transition: 'background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease',
         ...style
@@ -68,11 +68,13 @@ export const Toolbar: React.FC<React.PropsWithChildren<{ style?: React.CSSProper
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 64,
+    flexWrap: 'wrap',
+    rowGap: 8,
+    minHeight: 56,
     backgroundColor: colors.white,
     borderBottom: `1px solid ${colors.border}`,
     boxShadow: '0 8px 24px rgba(0,63,134,0.05)',
-    padding: '0 20px',
+    padding: '8px 12px',
     ...style
   }}>
     {children}

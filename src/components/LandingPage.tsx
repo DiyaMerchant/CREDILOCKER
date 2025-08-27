@@ -316,14 +316,14 @@ export default function LandingPage({ role, user }: LandingPageProps) {
   const COLORS = [colors.success, colors.danger]
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 20px' }}>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 16px' }}>
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 28, marginBottom: 8, color: colors.text }}>Welcome to CrediLocker</h1>
-        <p style={{ color: colors.subtleText, fontSize: 16 }}>Track your academic achievements</p>
+        <h1 style={{ fontSize: 'clamp(20px, 3vw, 28px)', marginBottom: 8, color: colors.text }}>Welcome to CrediLocker</h1>
+        <p style={{ color: colors.subtleText, fontSize: 'clamp(13px, 1.8vw, 16px)' }}>Track your academic achievements</p>
       </div>
       <Section title="Dashboard">
         {role === 'student' ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             <Card>
               <div>
                 <div style={{ fontWeight: 600, marginBottom: 6 }}>Field Project</div>
@@ -416,16 +416,28 @@ export default function LandingPage({ role, user }: LandingPageProps) {
           </Card>
 
           {/* Segment 2: Download Buttons */}
-          <Card style={{ marginBottom: 32, padding: 24, textAlign: 'center' }}>
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
-              <button onClick={exportFieldProjectReport} style={{ padding: '10px 20px', background: colors.primary, color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}>
-                Download Field Project Report
+          <Card style={{ marginBottom: 32, padding: 24 }}>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button onClick={exportFieldProjectReport} style={{ padding: 'clamp(8px,1.8vw,12px) clamp(12px,2.2vw,18px)', background: colors.primary, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, lineHeight: 1.2, maxWidth: 220 }}>
+                Download
+                <br />
+                Field Project
+                <br />
+                Report
               </button>
-              <button onClick={exportCEPReportLanding} style={{ padding: '10px 20px', background: colors.success, color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}>
-                Download CEP Report
+              <button onClick={exportCEPReportLanding} style={{ padding: 'clamp(8px,1.8vw,12px) clamp(12px,2.2vw,18px)', background: colors.success, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, lineHeight: 1.2, maxWidth: 220 }}>
+                Download
+                <br />
+                CEP
+                <br />
+                Report
               </button>
-              <button onClick={exportAttendanceReportLanding} style={{ padding: '10px 20px', background: colors.primary, color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}>
-                Download Attendance Report
+              <button onClick={exportAttendanceReportLanding} style={{ padding: 'clamp(8px,1.8vw,12px) clamp(12px,2.2vw,18px)', background: colors.primary, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, lineHeight: 1.2, maxWidth: 220 }}>
+                Download
+                <br />
+                Attendance
+                <br />
+                Report
               </button>
             </div>
           </Card>

@@ -181,9 +181,9 @@ export default function CoCurricular({ role }: CoCurricularProps) {
   }
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h1 style={{ fontSize: 28, color: colors.text }}>Co-Curricular Activities</h1>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+        <h1 style={{ fontSize: 'clamp(20px, 3vw, 28px)', color: colors.text, margin: 0 }}>Co-Curricular Activities</h1>
         {role === 'teacher' && (
           <Button
             onClick={() => {
@@ -207,7 +207,7 @@ export default function CoCurricular({ role }: CoCurricularProps) {
 
       {/* Overview Stats */}
       <Section>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
           <Card><div style={{ color: colors.subtleText, fontSize: 12 }}>Total Activities</div><div style={{ fontSize: 22, fontWeight: 700, color: colors.primary }}>{stats.total}</div></Card>
           <Card><div style={{ color: colors.subtleText, fontSize: 12 }}>Upcoming</div><div style={{ fontSize: 22, fontWeight: 700, color: colors.success }}>{stats.upcoming}</div></Card>
           <Card><div style={{ color: colors.subtleText, fontSize: 12 }}>Past</div><div style={{ fontSize: 22, fontWeight: 700, color: colors.text }}>{stats.past}</div></Card>
@@ -308,7 +308,7 @@ export default function CoCurricular({ role }: CoCurricularProps) {
 
       <Section title={activities.length ? 'Activities' : undefined}>
         {activities.length === 0 && <p style={{ color: colors.subtleText }}>No activities available.</p>}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
           {activities.map((activity) => {
             const status = role === 'student' ? attendanceByActivity[activity.id] : undefined
             return (

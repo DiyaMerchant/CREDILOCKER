@@ -205,9 +205,9 @@ export default function ManageClasses({ role }: ManageClassesProps) {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h1 style={{ fontSize: 28, margin: 0, color: colors.text }}>Management</h1>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+        <h1 style={{ fontSize: 'clamp(20px, 3vw, 28px)', margin: 0, color: colors.text }}>Management</h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <Button variant={!showTeachers ? 'primary' : 'secondary'} onClick={() => setShowTeachers(false)}>Students</Button>
           {role === 'teacher' && (
@@ -282,7 +282,7 @@ uid,email,name,class,semester,phone_number
               ))}
             </select>
           </div>
-          <div style={{ flex: 1, minWidth: 240 }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
             <label style={{ display: 'block', fontSize: 12, color: colors.subtleText }}>Search</label>
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by UID, name, or email" style={{ width: '100%', padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
           </div>
@@ -294,8 +294,8 @@ uid,email,name,class,semester,phone_number
       )}
 
       {!showTeachers && (
-      <Card>
-        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 110px 90px 120px 180px', gap: 8, fontWeight: 600, paddingBottom: 10, borderBottom: `1px solid ${colors.border}` }}>
+      <Card style={{ overflowX: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 110px 90px 120px 180px', gap: 8, fontWeight: 600, paddingBottom: 10, borderBottom: `1px solid ${colors.border}`, minWidth: 720, alignItems: 'center', boxSizing: 'border-box' }}>
           <div>UID</div>
           <div>Name</div>
           <div>Email</div>
@@ -306,30 +306,30 @@ uid,email,name,class,semester,phone_number
         </div>
         {loading && <div style={{ padding: 12 }}>Loading...</div>}
         {!loading && filteredStudents.map(s => (
-          <div key={s.uid} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 110px 90px 120px 180px', gap: 8, padding: '10px 0', borderBottom: `1px solid ${colors.border}`, alignItems: 'center' }}>
-            <div style={{ fontFamily: 'monospace' }}>{s.uid}</div>
+          <div key={s.uid} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 110px 90px 120px 180px', gap: 8, padding: '10px 0', borderBottom: `1px solid ${colors.border}`, alignItems: 'center', minWidth: 720, boxSizing: 'border-box' }}>
+            <div style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{s.uid}</div>
             {editingUid === s.uid ? (
               <>
-                <input value={editDraft.name as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, name: e.target.value }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
-                <input value={editDraft.email as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, email: e.target.value }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
+                <input value={editDraft.name as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, name: e.target.value }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8, minWidth: 0 }} />
+                <input value={editDraft.email as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, email: e.target.value }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8, minWidth: 0 }} />
                 <select value={editDraft.class as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, class: e.target.value }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }}>
                   {CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
                 <input type="number" value={editDraft.semester as number || 0} onChange={(e) => setEditDraft(prev => ({ ...prev, semester: Number(e.target.value) }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8, width: 80 }} />
-                <input value={editDraft.phone_number as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, phone_number: e.target.value }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
-                <div style={{ display: 'flex', gap: 8 }}>
+                <input value={editDraft.phone_number as string || ''} onChange={(e) => setEditDraft(prev => ({ ...prev, phone_number: e.target.value }))} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8, minWidth: 0 }} />
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-start' }}>
                   <Button onClick={saveEdit} variant="success">Save</Button>
                   <Button onClick={cancelEdit} variant="secondary">Cancel</Button>
                 </div>
               </>
             ) : (
               <>
-                <div>{s.name}</div>
-                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.email}</div>
+                <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.name}>{s.name}</div>
+                <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.email}</div>
                 <div>{s.class}</div>
                 <div>{s.semester ?? '-'}</div>
-                <div>{s.phone_number ?? '-'}</div>
-                <div>
+                <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.phone_number ?? '-'}</div>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-start', whiteSpace: 'nowrap' }}>
                   <Button onClick={() => startEdit(s)} variant="secondary">Edit</Button>
                 </div>
               </>
@@ -345,11 +345,12 @@ uid,email,name,class,semester,phone_number
       {showTeachers && (
       <>
         <Section title="Add Teacher">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
             <input placeholder="Employee Code" value={newTeacher.employee_code} onChange={(e) => setNewTeacher({ ...newTeacher, employee_code: e.target.value })} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
             <input placeholder="Name" value={newTeacher.name} onChange={(e) => setNewTeacher({ ...newTeacher, name: e.target.value })} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
             <input placeholder="Email" type="email" value={newTeacher.email} onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
             <input placeholder="Password" type="password" value={newTeacher.password} onChange={(e) => setNewTeacher({ ...newTeacher, password: e.target.value })} style={{ padding: 6, border: `1px solid ${colors.border}`, borderRadius: 8 }} />
+            <div style={{ display: 'flex', alignItems: 'center' }}>
             <Button variant="success" onClick={async () => {
               if (!newTeacher.employee_code || !newTeacher.name || !newTeacher.email || !newTeacher.password) {
                 alert('Please fill all fields')
@@ -374,6 +375,7 @@ uid,email,name,class,semester,phone_number
               setNewTeacher({ employee_code: '', name: '', email: '', password: '' })
               await fetchTeachers()
             }}>Add</Button>
+            </div>
           </div>
         </Section>
 
